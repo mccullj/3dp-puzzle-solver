@@ -1,0 +1,264 @@
+﻿@page "/PuzzleSolver"
+
+
+<PageTitle>Puzzle Solver</PageTitle>
+
+<h1>Puzzle Solver</h1>
+
+<p role="status">Puzzle Piece</p>
+
+<button class="btn btn-primary" @onclick="SolvePuzzle">@solvePuzzleText.</button>
+<table>
+	@for (int row = 0; row < currentMap.GetUpperBound(0); row++)
+	{
+		<tr>
+			@for (int column = 0; column < currentMap.GetUpperBound(1); column++)
+			{
+				<td>currentMap[row, column]</td>
+			}
+		</tr>
+	}
+</table>
+
+<h1>@result</h1>
+
+@using puzzlesolver.Data
+@code {
+//STATUS:
+	//Not quite working. Iterates awkwardly, probably some 2d array bullshit
+
+
+	//Init.
+	const String SPAWN_TEXT = "Click here to spawn pieces";
+	const String PIECES_SPAWNED_OK = "Pieces spawned.";
+
+	const String PUZZLE_START = "Click here to solve puzzle.";
+	const String PUZZLE_IN_PROGRESS = "Solving puzzle...";
+	const String PUZZLE_FINISHED = "Puzzle Solved!";
+
+	String spawnButtonText = SPAWN_TEXT;
+	String solvePuzzleText = "Click here to solve puzzle.";
+
+	String result = "";
+
+	const int Y_BOUNDARY_INDEX = 7;
+	const int X_BOUNDARY_INDEX = 7;
+	const int PIECE_SPACE_WIDTH = 4;
+	const int PIECE_SPACE_HEIGHT = 4;
+
+	List<List<PuzzlePiece>> solutionsList;
+	List<PuzzlePiece> pieceList;
+	bool[,] currentMap = {
+			{false, false, false, false, false, false, false, false},
+			{false, false, false, false, false, false, false, false},
+			{false, false, false, false, false, false, false, false},
+			{false, false, false, false, false, false, false, false},
+			{false, false, false, false, false, false, false, false},
+			{false, false, false, false, false, false, false, false},
+			{false, false, false, false, false, false, false, false},
+			{false, false, false, false, false, false, false, false}
+	};
+
+	private void SolvePuzzle(){
+		pieceList = PuzzlePieceDefinitions.initializePieceList();
+		solvePuzzleText = PUZZLE_IN_PROGRESS;
+		placeNext(pieceList, currentMap, 0, 0);
+		solvePuzzleText = PUZZLE_FINISHED;
+		result = "SUCCESS";
+		return;
+
+	}
+
+	/**
+	void placeNext(List<PuzzlePiece> pieces, bool[,] currentMap, int x, int y)
+	{
+		//Find next piece, if any.
+		bool foundPiece = false;
+		int i = 0;
+		while (foundPiece == false && i < pieces.Count())
+		{
+			if (pieces[i].isInPlay == false)
+			{
+				foundPiece = checkIfPlacementValid(pieces[i], currentMap, x, y);
+				if (foundPiece == false)
+				{
+					i++;
+				}
+			}
+			else
+			{
+				i++;
+			}
+		}
+
+		//If no valid plays found, return.
+		if (foundPiece == false)
+		{
+			return;
+		}
+		//If piece played, check if finished. if so and valid, clone current list of pieces and add to results.
+		//If not finished, then play next.
+		else
+		{
+			//If valid solved result, store to solution list.
+			bool mapResult = checkIfFinished(currentMap);
+			if (mapResult == true)
+			{
+				List<PuzzlePiece> addPieceList = pieceList.ConvertAll(piece => new PuzzlePiece(piece.desc, piece.width, piece.height, piece.space, piece.topside, piece.flipside));
+				solutionsList.Add(addPieceList);
+				return;
+			}
+		}
+
+		//Determine next index to play
+		if (x + 1 > X_BOUNDARY_INDEX)
+		{
+			x = 0;
+			y++;
+		}
+		else
+		{
+			x++;
+		}
+
+		if (y + 1 > Y_BOUNDARY_INDEX)
+		{
+			//no more play space remaining, end
+			return;
+		}
+
+		//Otherwise, attempt next play.
+		placeNext(pieces, currentMap, x, y);
+
+
+
+		//And finally, undo the play back up the call stack.
+		undoPlay(currentMap, pieces[i]);
+	}*/
+
+	void placeNext (List<PuzzlePiece> pieces, bool[,] currentMap, int x, int y)
+	{
+		//Find next piece, if any.
+		bool foundPiece = false;
+		foreach (PuzzlePiece piece in pieces)
+		{
+			if (piece.isInPlay == false) {
+				foundPiece = checkIfPlacementValid(piece, currentMap, x, y);
+				if (foundPiece == true) {
+					//Play piece.
+					piece.setInPlay(x, y);
+					updatePlayMap(currentMap, piece);
+					//Check if done.
+					bool mapResult = checkIfFinished (currentMap);
+					if (mapResult == true) {
+						List<PuzzlePiece> addPieceList = pieceList.ConvertAll(piece => new PuzzlePiece(piece.desc, piece.width, piece.height, piece.space, piece.topside, piece.flipside));
+						solutionsList.Add(addPieceList);
+						return;
+					}
+
+					//Determine next index to play
+					if (x + 1 > X_BOUNDARY_INDEX)
+					{
+						x = 0;
+						y++;
+					} else {
+						x++;
+					}
+					if (y+1 > Y_BOUNDARY_INDEX) {
+						return;
+					}
+					placeNext(pieces, currentMap, x, y);
+					undoPlay(currentMap, piece);
+				}
+			}
+		}
+		if (foundPiece == false) {
+			//Determine next index to play
+			if (x + 1 > X_BOUNDARY_INDEX)
+			{
+				x = 0;
+				y++;
+			}
+			else
+			{
+				x++;
+			}
+			if (y + 1 > Y_BOUNDARY_INDEX)
+			{
+				return;
+			}
+			placeNext(pieces, currentMap, x, y);
+		}
+	}
+
+		public bool checkIfPlacementValid(PuzzlePiece pieceToPlay, bool[,] playMap, int xToPlay, int yToPlay) {
+			//check if play is within bounds
+			if ((pieceToPlay.width + xToPlay > X_BOUNDARY_INDEX) || (pieceToPlay.height + yToPlay > Y_BOUNDARY_INDEX)) {
+				return false;
+			}
+
+			//Check if there is overlap between occupied space in piece and occupied space in board
+			int i = 0;
+			int j = 0;
+			for (i = 0; i < PIECE_SPACE_WIDTH; i++) {
+				for (j = 0; j < PIECE_SPACE_HEIGHT; j++) {
+					if ((pieceToPlay.space[j,i] == true) && (playMap[j+yToPlay,i+xToPlay] == true)) {
+						return false;
+					}
+				}
+			}
+			//if no conflict and not out of bounds, play is valid. 
+			// update piece with play info
+			
+			// update map with piece play
+			
+			//if either fail, return false
+			return true;
+		}
+
+		public bool checkIfFinished(bool[,] playMap)
+		{
+			for (int i = 0; i < X_BOUNDARY_INDEX; i++)
+			{
+				for (int j = 0; j < Y_BOUNDARY_INDEX; j++)
+				{
+				if ((playMap[j, i] == false))
+					{
+						return false;
+					}
+				}
+			}
+			return true;
+		}
+		public void updatePlayMap (bool[,] playMap, PuzzlePiece pieceInPlay) {
+			for (int i = 0; i < PIECE_SPACE_WIDTH; i++)
+			{
+				for (int j = 0; j < PIECE_SPACE_HEIGHT; j++)
+				{
+					if ((pieceInPlay.space[j, i] == true))
+					{
+						playMap[j + pieceInPlay.inPlayY, i + pieceInPlay.inPlayX] = true;
+					}
+				}
+			}
+			return;
+		}
+
+		public void undoPlay(bool[,] playMap, PuzzlePiece pieceInPlay)
+		{
+			for (int i = 0; i < PIECE_SPACE_WIDTH; i++)
+			{
+				for (int j = 0; j < PIECE_SPACE_HEIGHT; j++)
+				{
+				if ((pieceInPlay.space[j, i] == true))
+					{
+						playMap[j + pieceInPlay.inPlayY, i + pieceInPlay.inPlayX] = false;
+					}
+				}
+			}
+			pieceInPlay.isInPlay = false;
+			return;
+		}
+
+
+}
